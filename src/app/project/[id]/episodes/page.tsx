@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import AiChat from "@/components/ai-assistant/AiChat";
 import StepIndicator from "@/components/progress-tracker/StepIndicator";
+import { getSsoToken } from "@/components/SsoGuard";
 import { Plus, Trash2, Save, ArrowRight, CheckCircle, Check, Download, Cpu, Wand2 } from "lucide-react";
 import { getProject, updateProject, type Episode, type Cut, type Project } from "@/lib/storage";
 import { downloadEpisode, downloadAllEpisodes } from "@/lib/download";
@@ -114,9 +115,13 @@ export default function EpisodesPage({ params }: { params: Promise<{ id: string 
     }
     setAutofilling(true);
     try {
+      const token = getSsoToken();
       const res = await fetch("/api/ai/autofill", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ ideaChat: project.ideaChat, step: "episodes" }),
       });
       const data = await res.json();

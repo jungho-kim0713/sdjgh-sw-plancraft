@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { anthropic } from "@/lib/claude";
+import { verifySsoToken } from "@/lib/ssoVerify";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
@@ -65,6 +66,11 @@ const AUTOFILL_PROMPTS: Record<string, string> = {
 };
 
 export async function POST(req: NextRequest) {
+  const ssoUser = await verifySsoToken(req.headers.get('authorization'));
+  if (!ssoUser) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  }
+
   const { ideaChat, step } = await req.json() as { ideaChat: ChatMessage[]; step: string };
 
   if (!ideaChat || ideaChat.length === 0) {

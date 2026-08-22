@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Send, Sparkles, User } from "lucide-react";
+import { getSsoToken } from "@/components/SsoGuard";
 
 type Message = { role: "user" | "assistant"; content: string };
 
@@ -54,9 +55,13 @@ export default function AiChat({ step, placeholder, initialMessage, initialMessa
     setLoading(true);
 
     try {
+      const token = getSsoToken();
       const res = await fetch("/api/ai/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ messages: next, step }),
       });
       const data = await res.json();

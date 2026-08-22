@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Instrument_Serif } from "next/font/google";
 import Script from "next/script";
+import SsoGuard from "@/components/SsoGuard";
 import "./globals.css";
 
 const instrumentSerif = Instrument_Serif({
@@ -20,7 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ko" className={`${instrumentSerif.variable} h-full`}>
       <body className="min-h-full flex flex-col">
-        {children}
+        <SsoGuard>{children}</SsoGuard>
         <Script
           id="pretendard"
           strategy="afterInteractive"
