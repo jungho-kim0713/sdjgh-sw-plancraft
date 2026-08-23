@@ -6,7 +6,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import AiChat from "@/components/ai-assistant/AiChat";
 import StepIndicator from "@/components/progress-tracker/StepIndicator";
-import { getSsoToken } from "@/components/SsoGuard";
 import { useRouter } from "next/navigation";
 import { Save, ArrowRight, Check, Download, Wand2 } from "lucide-react";
 import { getProject, updateProject, type Project } from "@/lib/storage";
@@ -51,13 +50,9 @@ export default function StoryPage({ params }: { params: Promise<{ id: string }> 
     }
     setAutofilling(true);
     try {
-      const token = getSsoToken();
       const res = await fetch("/api/ai/autofill", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ideaChat: project.ideaChat, step: "story" }),
       });
       const data = await res.json();

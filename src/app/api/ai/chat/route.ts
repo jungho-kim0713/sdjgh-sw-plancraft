@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { chat, Message } from "@/lib/claude";
-import { verifySsoToken } from "@/lib/ssoVerify";
 import {
   IDEA_ASSISTANT_PROMPT,
   STORY_ASSISTANT_PROMPT,
@@ -20,11 +19,6 @@ const PROMPTS: Record<string, string> = {
 };
 
 export async function POST(req: NextRequest) {
-  const ssoUser = await verifySsoToken(req.headers.get('authorization'));
-  if (!ssoUser) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-  }
-
   const { messages, step } = await req.json() as { messages: Message[]; step: string };
 
   const systemPrompt = PROMPTS[step] ?? IDEA_ASSISTANT_PROMPT;
