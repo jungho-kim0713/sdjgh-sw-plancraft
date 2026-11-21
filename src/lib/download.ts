@@ -1,4 +1,4 @@
-import { type Project, getProjects, saveProjects } from "./storage";
+import { type Project, flushServerWrites, getProjects, isServerStorageActive, saveProjects } from "./storage";
 
 function triggerDownload(filename: string, content: string, mimeType: string) {
   const blob = new Blob([content], { type: mimeType });
@@ -21,14 +21,25 @@ export function exportAllProjects() {
 export function importProjects(file: File): Promise<void> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const parsed = JSON.parse(e.target?.result as string);
         if (!Array.isArray(parsed)) throw new Error();
-        saveProjects(parsed);
+        // 서버 모드의 가져오기는 기존 작품을 삭제하거나 같은 ID를 덮어쓰지 않는다.
+        if (isServerStorageActive()) {
+          const existing = getProjects();
+          const ids = new Set(existing.map(project => project.id));
+          const additions = parsed.map((project: Project) => {
+            const id = typeof project.id === "string" && !ids.has(project.id) ? project.id : crypto.randomUUID();
+            ids.add(id);
+            return { ...project, id };
+          });
+          saveProjects([...existing, ...additions]);
+        } else saveProjects(parsed);
+        await flushServerWrites();
         resolve();
-      } catch {
-        reject(new Error("올바른 백업 파일이 아니에요."));
+      } catch (error) {
+        reject(error instanceof Error ? error : new Error("올바른 백업 파일이 아니에요."));
       }
     };
     reader.readAsText(file);

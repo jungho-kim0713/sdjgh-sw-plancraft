@@ -1,3 +1,5 @@
+import { deleteCampusProject, getCampusEpoch, putCampusProject, type ServerProjectRecord } from "./campusClient";
+
 export type Character = {
   name: string;
   role: string;
@@ -51,17 +53,101 @@ export type Project = {
 
 const KEY = "plancraft_projects";
 
-export function getProjects(): Project[] {
+let serverProjects: Project[] | null = null;
+const revisions = new Map<string, number>();
+const dirty = new Set<string>();
+const errors = new Map<string, string>();
+let pending: Promise<void> | null = null;
+
+function changed(): void {
+  if (typeof window !== "undefined") window.dispatchEvent(new Event("plancraft-projects-changed"));
+}
+
+export function getBrowserProjects(): Project[] {
   if (typeof window === "undefined") return [];
-  try {
-    return JSON.parse(localStorage.getItem(KEY) ?? "[]");
-  } catch {
-    return [];
-  }
+  try { return JSON.parse(localStorage.getItem(KEY) ?? "[]") as Project[]; }
+  catch { return []; }
+}
+
+export function activateServerProjects(records: ServerProjectRecord[]): void {
+  serverProjects = records.map(record => record.project);
+  revisions.clear();
+  dirty.clear();
+  errors.clear();
+  records.forEach(record => revisions.set(record.project.id, record.revision));
+  changed();
+}
+
+export function deactivateServerProjects(): void {
+  serverProjects = null;
+  revisions.clear();
+  dirty.clear();
+  errors.clear();
+  changed();
+}
+
+export function getServerSaveError(): string | null { return errors.values().next().value ?? null; }
+export function isServerStorageActive(): boolean { return serverProjects !== null; }
+
+function pumpWrites(): Promise<void> {
+  if (pending) return pending;
+  const session = getCampusEpoch();
+  pending = (async () => {
+    while (dirty.size && session === getCampusEpoch() && serverProjects !== null) {
+      const id = dirty.values().next().value as string;
+      dirty.delete(id);
+      const project = serverProjects.find(item => item.id === id);
+      try {
+        if (project) revisions.set(id, await putCampusProject(project, revisions.get(id) ?? 0));
+        else if (revisions.has(id)) {
+          await deleteCampusProject(id, revisions.get(id)!);
+          revisions.delete(id);
+        }
+        errors.delete(id);
+      } catch (error) {
+        if (session !== getCampusEpoch()) break;
+        errors.set(id, error instanceof Error ? error.message : "서버 저장에 실패했어요.");
+      }
+      changed();
+    }
+  })().finally(() => {
+    pending = null;
+    if (dirty.size && serverProjects !== null) void pumpWrites();
+  });
+  return pending;
+}
+
+export async function flushServerWrites(): Promise<void> {
+  while (pending || dirty.size) await (pending ?? pumpWrites());
+  const error = getServerSaveError();
+  if (error) throw new Error(error);
+}
+
+export async function retryServerWrites(): Promise<void> {
+  for (const id of errors.keys()) dirty.add(id);
+  errors.clear();
+  await flushServerWrites();
+}
+
+export function getProjects(): Project[] {
+  if (serverProjects !== null) return serverProjects;
+  return getBrowserProjects();
 }
 
 export function saveProjects(projects: Project[]): void {
+  if (serverProjects !== null) {
+    const previous = new Map(serverProjects.map(project => [project.id, project]));
+    const next = new Map(projects.map(project => [project.id, project]));
+    serverProjects = projects;
+    for (const id of new Set([...previous.keys(), ...next.keys()])) {
+      if (JSON.stringify(previous.get(id)) !== JSON.stringify(next.get(id))) dirty.add(id);
+    }
+    changed();
+    void pumpWrites();
+    return;
+  }
   localStorage.setItem(KEY, JSON.stringify(projects));
+  changed();
 }
 
 export function getProject(id: string): Project | null {

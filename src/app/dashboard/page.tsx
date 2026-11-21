@@ -47,7 +47,10 @@ export default function DashboardPage() {
   const importRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setProjects(getProjects());
+    const changed = () => setProjects(getProjects());
+    queueMicrotask(changed);
+    window.addEventListener("plancraft-projects-changed", changed);
+    return () => window.removeEventListener("plancraft-projects-changed", changed);
   }, []);
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {

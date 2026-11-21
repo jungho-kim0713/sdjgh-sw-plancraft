@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Instrument_Serif } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
+import ServerStorageGate from "@/components/ServerStorageGate";
 
 const instrumentSerif = Instrument_Serif({
   weight: "400",
@@ -20,7 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ko" className={`${instrumentSerif.variable} h-full`}>
       <body className="min-h-full flex flex-col">
-        {children}
+        <ServerStorageGate>{children}</ServerStorageGate>
         <Script
           id="pretendard"
           strategy="afterInteractive"

@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import AiChat from "@/components/ai-assistant/AiChat";
 import StepIndicator from "@/components/progress-tracker/StepIndicator";
 import { Save, ArrowRight, ArrowLeft, Check, Download, FileText, CheckCircle, Wand2 } from "lucide-react";
-import { getProject, updateProject, type Episode, type Project, type Character } from "@/lib/storage";
+import { flushServerWrites, getProject, updateProject, type Episode, type Project, type Character } from "@/lib/storage";
 import { downloadProposalScript } from "@/lib/download";
 
 function FeatureListPanel({ episodes }: { episodes: Episode[] }) {
@@ -87,15 +87,20 @@ export default function ScriptPage({ params }: { params: Promise<{ id: string }>
     }
   }, [id]);
 
-  const save = () => {
+  const save = async () => {
     setSaving(true);
     updateProject(id, {
       proposalScript,
       currentStep: Math.max(5, project?.currentStep ?? 1),
     });
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    try {
+      await flushServerWrites();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (error) {
+      setSaved(false);
+      alert(error instanceof Error ? error.message : "저장에 실패했어요.");
+    } finally { setSaving(false); }
   };
 
   const goNext = () => {
